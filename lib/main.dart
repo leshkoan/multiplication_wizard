@@ -15,7 +15,25 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'Мастер умножения',
-      theme: ThemeData(primarySwatch: Colors.blue),
+      theme: ThemeData(
+        primarySwatch: Colors.blue,
+        appBarTheme: const AppBarTheme(
+          titleTextStyle: TextStyle(
+            fontWeight: FontWeight.bold,
+            fontSize: 20,
+          ),
+          toolbarHeight: 30,
+          centerTitle: true,
+        ),
+        elevatedButtonTheme: ElevatedButtonThemeData(
+          style: ElevatedButton.styleFrom(
+            textStyle: const TextStyle(fontSize: 16),
+          ),
+        ),
+        textTheme: const TextTheme(
+          bodyMedium: TextStyle(fontSize: 16),
+        ),
+      ),
       home: const MyHomePage(),
     );
   }
@@ -154,6 +172,8 @@ class _MyHomePageState extends State<MyHomePage> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
     if (_isGameOver()) {
       _timer?.cancel();
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -163,13 +183,7 @@ class _MyHomePageState extends State<MyHomePage> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Center(
-          child: Text(
-            'Мастер умножения',
-            style: TextStyle(fontWeight: FontWeight.bold),
-          ),
-        ),
-        toolbarHeight: 30,
+        title: const Text('Мастер умножения'),
       ),
       body: SingleChildScrollView(
         child: Padding(
@@ -220,7 +234,7 @@ class _MyHomePageState extends State<MyHomePage> {
                       child: Center(
                         child: Text(
                           colLabels[col].toString(),
-                          style: const TextStyle(fontSize: 18),
+                          style: theme.textTheme.bodyMedium,
                         ),
                       ),
                     ),
@@ -234,7 +248,7 @@ class _MyHomePageState extends State<MyHomePage> {
                       child: Center(
                         child: Text(
                           rowLabels[row].toString(),
-                          style: const TextStyle(fontSize: 18),
+                          style: theme.textTheme.bodyMedium,
                         ),
                       ),
                     ),
