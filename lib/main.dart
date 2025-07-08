@@ -1,9 +1,8 @@
 import 'dart:async';
-import 'dart:math';
 import 'package:flutter/material.dart';
+import 'package:multiplication_wizard/screens/score_records_page.dart';
+import 'package:multiplication_wizard/screens/number_picker_page.dart';
 import 'package:multiplication_wizard/game_logic.dart';
-import 'package:shared_preferences/shared_preferences.dart';
-import 'dart:convert';
 
 void main() {
   runApp(const MyApp());
@@ -43,136 +42,89 @@ class MyHomePage extends StatefulWidget {
 }
 
 class _MyHomePageState extends State<MyHomePage> {
-  late final MultiplicationGame game;
+  static final gameLogic = GameLogic();
+  // List<List<bool>> _isFlipped = List.generate(
+  //   8,
+  //   (_) => List.generate(8, (_) => true),
+  // );
+  // Timer? _timer;
+  //int _elapsedSeconds = 0;
+  // bool _gameStarted = false;
   final TextEditingController _nameController = TextEditingController();
   final FocusNode _nameFocusNode = FocusNode();
-  
+
   @override
   void initState() {
     super.initState();
-    game = MultiplicationGame();
+    gameLogic.initializeFlipped();
+    gameLogic.loadScoreRecords();
+    //        setState(() {
+    ///!!!
+    //        });
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _showWelcomeDialog();
     });
   }
 
-  Future<void> loadScoreRecords() async {
-    final prefs = await SharedPreferences.getInstance();
-    final recordsJson = prefs.getStringList('scoreRecords') ?? [];
-    if (!mounted) return;
-    setState(() {
-      scoreRecords =
-          recordsJson.map((json) => ScoreRecord.fromJson(json)).toList();
-      scoreRecords.sort((a, b) {
-        if (a.time == b.time) {
-          return b.score.compareTo(a.score);
-        }
-        return a.time.compareTo(b.time);
-      });
-    });
-  }
+  // void _initializeFlipped() {
+  // final random = Random();
+  // List<Point<int>> points = [];
+  // while (points.length < 10) {
+  //   int row = random.nextInt(8);
+  //   int col = random.nextInt(8);
+  //   Point<int> newPoint = Point(row, col);
+  //   if (!points.contains(newPoint)) {
+  //     points.add(newPoint);
+  //   }
+  // }
 
-  Future<void> saveScoreRecords() async {
-    final prefs = await SharedPreferences.getInstance();
-    final recordsJson =
-        scoreRecords.map((record) => record.toJsonString()).toList();
-    await prefs.setStringList('scoreRecords', recordsJson);
-  }
-
-  void initializeFlipped() {
-    final random = Random();
-    List<Point<int>> points = [];
-    while (points.length < 10) {
-      int row = random.nextInt(8);
-      int col = random.nextInt(8);
-      Point<int> newPoint = Point(row, col);
-      if (!points.contains(newPoint)) {
-        points.add(newPoint);
-      }
-    }
-
-    setState(() {
-      isFlipped = List.generate(8, (_) => List.generate(8, (_) => true));
-      for (var point in points) {
-        isFlipped[point.x][point.y] = false;
-      }
-    });
-  }
+  ///!!!   setState(() {
+  // _isFlipped = List.generate(8, (_) => List.generate(8, (_) => true));
+  // for (var point in points) {
+  //   _isFlipped[point.x][point.y] = false;
+  // }
+  ///!!!    });
+  ///}
 
   @override
   void dispose() {
-    timer?.cancel();
-    nameController.dispose();
-    nameFocusNode.dispose();
+    gameLogic.timer?.cancel();
+    _nameController.dispose();
+    _nameFocusNode.dispose();
     super.dispose();
   }
 
-  void startTimer() {
-    if (!gameStarted) {
-      gameStarted = true;
-      timer = Timer.periodic(const Duration(seconds: 1), (timer) {
+  void _startTimer() {
+    if (!gameLogic.getGameStarted()) {
+      gameLogic.startGame();
+      gameLogic.timer = Timer.periodic(const Duration(seconds: 1), (timer) {
         if (!mounted) return;
         setState(() {
-          elapsedSeconds++;
+          gameLogic.incTimer();
         });
       });
     }
   }
 
-  String formatTime(int seconds) {
+  String _formatTime(int seconds) {
     final minutes = (seconds ~/ 60).toString().padLeft(2, '0');
     final remainingSeconds = (seconds % 60).toString().padLeft(2, '0');
     return '$minutes:$remainingSeconds';
   }
 
-  bool isGameOver() {
-    for (int row = 0; row < 8; row++) {
-      for (int col = 0; col < 8; col++) {
-        if (!isFlipped[row][col]) {
-          return false;
-        }
-      }
-    }
-    return true;
-  }
-
-  void resetGame() {
-    setState(() {
-      score = 0;
-      isFlipped = List.generate(8, (_) => List.generate(8, (_) => true));
-      initializeFlipped();
-      elapsedSeconds = 0;
-      gameStarted = false;
-      timer?.cancel();
-    });
-  }
-
-  Future<int?> showNumberPickerDialog(BuildContext context) async {
+  Future<int?> _showNumberPickerDialog(BuildContext context) async {
     return Navigator.push(
       context,
       MaterialPageRoute(builder: (context) => const NumberPickerPage()),
     );
   }
 
-  void handleCorrectAnswer(int row, int col) {
-    setState(() {
-      isFlipped[row][col] = true;
-      score += 3;
-    });
-  }
-
-  void handleWrongAnswer() {
-    setState(() {
-      score -= 1;
-    });
-  }
-
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
-    if (isGameOver()) {
-      timer?.cancel();
+    if (gameLogic.isGameOver()) {
+      gameLogic.timer?.cancel();
       WidgetsBinding.instance.addPostFrameCallback((_) {
         _showGameOverDialog();
       });
@@ -186,15 +138,15 @@ class _MyHomePageState extends State<MyHomePage> {
           child: Column(
             children: [
               TextFormField(
-                controller: nameController,
+                controller: _nameController,
                 decoration: const InputDecoration(
                   labelText: 'Имя игрока',
                   border: OutlineInputBorder(),
                 ),
-                focusNode: nameFocusNode,
+                focusNode: _nameFocusNode,
                 onChanged: (value) {
                   setState(() {
-                    playerName = value;
+                    gameLogic.setPlayerName(value);
                   });
                 },
               ),
@@ -203,7 +155,7 @@ class _MyHomePageState extends State<MyHomePage> {
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   Text(
-                    'Счет: $score',
+                    'Счет: ${gameLogic.getScore()}',
                     style: const TextStyle(
                       fontSize: 24,
                       fontWeight: FontWeight.bold,
@@ -211,7 +163,7 @@ class _MyHomePageState extends State<MyHomePage> {
                   ),
                   const SizedBox(width: 20),
                   Text(
-                    'Время: ${formatTime(elapsedSeconds)}',
+                    'Время: ${_formatTime(gameLogic.getTimer())}',
                     style: const TextStyle(
                       fontSize: 24,
                       fontWeight: FontWeight.bold,
@@ -228,7 +180,7 @@ class _MyHomePageState extends State<MyHomePage> {
                     Expanded(
                       child: Center(
                         child: Text(
-                          colLabels[col].toString(),
+                          gameLogic.colLabels[col].toString(),
                           style: theme.textTheme.bodyMedium,
                         ),
                       ),
@@ -242,7 +194,7 @@ class _MyHomePageState extends State<MyHomePage> {
                       width: 20,
                       child: Center(
                         child: Text(
-                          rowLabels[row].toString(),
+                          gameLogic.rowLabels[row].toString(),
                           style: theme.textTheme.bodyMedium,
                         ),
                       ),
@@ -259,33 +211,44 @@ class _MyHomePageState extends State<MyHomePage> {
                                 backgroundColor: Colors.blue,
                               ),
                               onPressed: () async {
-                                nameFocusNode.unfocus();
-                                startTimer();
-                                if (!isFlipped[row][col]) {
+                                _nameFocusNode.unfocus();
+                                _startTimer();
+                                if (!gameLogic.getIsFlipped(row, col)) {
                                   final expectedResult =
-                                      rowLabels[row] * colLabels[col];
+                                      gameLogic.rowLabels[row] *
+                                      gameLogic.colLabels[col];
                                   final selectedNumber =
-                                      await showNumberPickerDialog(context);
+                                      await _showNumberPickerDialog(context);
 
                                   if (selectedNumber != null) {
                                     if (selectedNumber == expectedResult) {
-                                      handleCorrectAnswer(row, col);
+                                      if (!mounted) return;
+                                      setState(() {
+                                        gameLogic.setIsFlipped(row, col, true);
+                                        gameLogic.incScore();
+                                      });
                                     } else {
                                       if (!mounted) return;
                                       _showResultDialog(
                                         'Ошибка!',
                                         'Неправильный ответ. Ожидалось $expectedResult, а вы выбрали $selectedNumber.',
-                                        handleWrongAnswer,
+                                        () {
+                                          if (!mounted) return;
+                                          setState(() {
+                                            gameLogic.decScore();
+                                          });
+                                        },
                                       );
                                     }
                                   }
                                 }
                               },
                               child:
-                                  isFlipped[row][col]
+                                  gameLogic.getIsFlipped(row, col)
                                       ? Center(
                                         child: Text(
-                                          (rowLabels[row] * colLabels[col])
+                                          (gameLogic.rowLabels[row] *
+                                                  gameLogic.colLabels[col])
                                               .toString(),
                                           style: const TextStyle(
                                             color: Colors.white,
@@ -309,8 +272,9 @@ class _MyHomePageState extends State<MyHomePage> {
                         context,
                         MaterialPageRoute(
                           builder:
-                              (context) =>
-                                  ScoreRecordsPage(scoreRecords: scoreRecords),
+                              (context) => ScoreRecordsPage(
+                                scoreRecords: gameLogic.scoreRecords,
+                              ),
                         ),
                       );
                     },
@@ -318,7 +282,7 @@ class _MyHomePageState extends State<MyHomePage> {
                   ),
                   ElevatedButton(
                     onPressed: () {
-                      resetGame();
+                      gameLogic.resetGame();
                     },
                     child: const Text('Начать заново'),
                   ),
@@ -359,7 +323,7 @@ class _MyHomePageState extends State<MyHomePage> {
         return AlertDialog(
           title: const Text('Игра окончена!'),
           content: Text(
-            'Поздравляем! Ваш счет: $score. Затраченное время: ${formatTime(elapsedSeconds)}',
+            'Поздравляем! Ваш счет: ${gameLogic.getScore()}. Затраченное время: ${_formatTime(gameLogic.getTimer())}',
           ),
           actions: <Widget>[
             TextButton(
@@ -373,34 +337,35 @@ class _MyHomePageState extends State<MyHomePage> {
       },
     ).then((_) {
       _saveScore();
-      resetGame();
+      gameLogic.resetGame();
     });
   }
 
   void _saveScore() {
+    final playerNameToSave = gameLogic.getPlayerName();
     final newRecord = ScoreRecord(
-      name: playerName.isNotEmpty ? playerName : 'Безымянный',
-      score: score,
-      time: elapsedSeconds,
+      name: playerNameToSave.isNotEmpty ? playerNameToSave : 'Безымянный',
+      score: gameLogic.getScore(),
+      time: gameLogic.getTimer(),
     );
 
     setState(() {
-      scoreRecords.add(newRecord);
-      scoreRecords.sort((a, b) {
+      gameLogic.scoreRecords.add(newRecord);
+      gameLogic.scoreRecords.sort((a, b) {
         if (a.time == b.time) {
           return b.score.compareTo(a.score);
         }
         return a.time.compareTo(b.time);
       });
-      if (scoreRecords.length > 10) {
-        scoreRecords.removeLast();
+      if (gameLogic.scoreRecords.length > 10) {
+        gameLogic.scoreRecords.removeLast();
       }
     });
 
-    saveScoreRecords();
+    gameLogic.saveScoreRecords();
   }
 
-  void showWelcomeDialog() {
+  void _showWelcomeDialog() {
     showDialog<void>(
       context: context,
       builder: (BuildContext context) {
@@ -420,128 +385,5 @@ class _MyHomePageState extends State<MyHomePage> {
         );
       },
     );
-  }
-}
-
-class NumberPickerPage extends StatelessWidget {
-  const NumberPickerPage({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text('Выберите число')),
-      body: GridView.builder(
-        padding: const EdgeInsets.all(16),
-        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-          crossAxisCount: 7,
-          childAspectRatio: 1.5,
-        ),
-        itemCount: 98,
-        itemBuilder: (BuildContext context, int index) {
-          final number = index + 2;
-          return Padding(
-            padding: const EdgeInsets.all(1.0),
-            child: ElevatedButton(
-              style: ElevatedButton.styleFrom(
-                padding: EdgeInsets.zero,
-                backgroundColor: Colors.white,
-                foregroundColor: Colors.black,
-                textStyle: const TextStyle(fontSize: 20),
-                side:
-                    number % 10 == 0
-                        ? const BorderSide(color: Colors.red, width: 2)
-                        : null,
-              ),
-              onPressed: () {
-                Navigator.of(context).pop(number);
-              },
-              child: Center(
-                child: Text(
-                  number.toString(),
-                  style: const TextStyle(fontSize: 20),
-                ),
-              ),
-            ),
-          );
-        },
-      ),
-    );
-  }
-}
-
-class ScoreRecord {
-  final String name;
-  final int score;
-  final int time;
-
-  ScoreRecord({required this.name, required this.score, required this.time});
-
-  Map<String, dynamic> toJson() {
-    return {'name': name, 'score': score, 'time': time};
-  }
-
-  String toJsonString() {
-    return jsonEncode(toJson());
-  }
-
-  factory ScoreRecord.fromJson(String jsonString) {
-    final Map<String, dynamic> json = jsonDecode(jsonString);
-    return ScoreRecord(
-      name: json['name'] as String,
-      score: json['score'] as int,
-      time: json['time'] as int,
-    );
-  }
-
-  @override
-  String toString() {
-    return 'name: $name, score: $score, time: $time';
-  }
-}
-
-class ScoreRecordsPage extends StatelessWidget {
-  final List<ScoreRecord> scoreRecords;
-
-  const ScoreRecordsPage({super.key, required this.scoreRecords});
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text('Таблица рекордов')),
-      body: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: SingleChildScrollView(
-          scrollDirection: Axis.horizontal,
-          child: DataTable(
-            columnSpacing: 20,
-            columns: const [
-              DataColumn(label: Text('Место')),
-              DataColumn(label: Text('Имя')),
-              DataColumn(label: Text('Счет')),
-              DataColumn(label: Text('Время')),
-            ],
-            rows:
-                scoreRecords.asMap().entries.map<DataRow>((entry) {
-                  int index = entry.key;
-                  ScoreRecord record = entry.value;
-                  return DataRow(
-                    cells: [
-                      DataCell(Text('${index + 1}')),
-                      DataCell(Text(record.name)),
-                      DataCell(Text(record.score.toString())),
-                      DataCell(Text(_formatTime(record.time))),
-                    ],
-                  );
-                }).toList(),
-          ),
-        ),
-      ),
-    );
-  }
-
-  String _formatTime(int seconds) {
-    final minutes = (seconds ~/ 60).toString().padLeft(2, '0');
-    final remainingSeconds = (seconds % 60).toString().padLeft(2, '0');
-    return '$minutes:$remainingSeconds';
   }
 }

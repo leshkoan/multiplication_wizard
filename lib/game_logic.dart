@@ -1,56 +1,147 @@
+// ignore_for_file: public_member_api_docs, sort_constructors_first
+import 'dart:async';
+import 'dart:convert';
 import 'dart:math';
 
-class MultiplicationGame {
-  final List<int> rowLabels;
-  final List<int> colLabels;
-  List<List<bool>> isFlipped;
-  int score = 0;
-  int elapsedSeconds = 0;
-  bool gameStarted = false;
+import 'package:multiplication_wizard/model.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
-  MultiplicationGame({
-    this.rowLabels = const [2, 3, 4, 5, 6, 7, 8, 9],
-    this.colLabels = const [2, 3, 4, 5, 6, 7, 8, 9],
-  }) : isFlipped = List.generate(8, (_) => List.filled(8, true)) {
-    _initializeFlipped();
+class GameLogic {
+  static const scoreIncrement = 3;
+  static const scoreDecrement = 1;
+  static const countUnknownNumbers = 10;
+  late GameModel gameModel;
+  late final List<int> rowLabels;
+  late final List<int> colLabels;
+  late bool _gameStarted;
+  List<ScoreRecord> scoreRecords = [];
+
+  Timer? timer;
+
+  GameLogic() {
+    gameModel = GameModel();
+    rowLabels = [2, 3, 4, 5, 6, 7, 8, 9];
+    colLabels = [2, 3, 4, 5, 6, 7, 8, 9];
+    _gameStarted = false;
   }
 
-  void _initializeFlipped() {
-    final random = Random();
-    final points = <Point<int>>{};
+  int getScore() => gameModel.score;
 
-    while (points.length < 10) {
-      points.add(Point(random.nextInt(8), random.nextInt(8)));
-    }
+  void incScore() => gameModel.score += scoreIncrement;
 
-    isFlipped = List.generate(8, (_) => List.filled(8, true));
-    for (final point in points) {
-      isFlipped[point.x][point.y] = false;
-    }
-  }
+  void decScore() => gameModel.score -= scoreDecrement;
 
-  void handleAnswer(int row, int col, int selectedNumber) {
-    final expectedResult = rowLabels[row] * colLabels[col];
-    if (selectedNumber == expectedResult) {
-      isFlipped[row][col] = true;
-      score += 3;
-    } else {
-      score = max(0, score - 1);
-    }
-  }
+  int getTimer() => gameModel.elapsedSeconds;
 
-  bool get isGameOver => isFlipped.every((row) => row.every((cell) => cell));
+  void incTimer() => gameModel.elapsedSeconds++;
 
   void reset() {
-    score = 0;
-    elapsedSeconds = 0;
-    gameStarted = false;
-    _initializeFlipped();
+    gameModel.reset();
+    _gameStarted = false;
+    initializeFlipped();
   }
 
-  String formatTime() {
-    final minutes = (elapsedSeconds ~/ 60).toString().padLeft(2, '0');
-    final seconds = (elapsedSeconds % 60).toString().padLeft(2, '0');
-    return '$minutes:$seconds';
+  void resetGame() {
+    gameModel.reset();
+    initializeFlipped();
+    _gameStarted = false;
+    timer?.cancel();
+  }
+
+  String getPlayerName() => gameModel.playerName;
+
+  void setPlayerName(String name) => gameModel.playerName = name;
+
+  bool getGameStarted() => _gameStarted;
+
+  void startGame() => _gameStarted = true;
+
+  void initializeFlipped() {
+    final random = Random();
+    List<Point<int>> points = [];
+    while (points.length < countUnknownNumbers) {
+      int row = random.nextInt(8);
+      int col = random.nextInt(8);
+      Point<int> newPoint = Point(row, col);
+      if (!points.contains(newPoint)) {
+        points.add(newPoint);
+      }
+    }
+    gameModel.isFlipped = List.generate(
+      8,
+      (_) => List.generate(8, (_) => true),
+    );
+    for (var point in points) {
+      gameModel.isFlipped[point.x][point.y] = false;
+    }
+  }
+
+  Future<void> saveScoreRecords() async {
+    final prefs = await SharedPreferences.getInstance();
+    final recordsJson =
+        scoreRecords.map((record) => record.toJsonString()).toList();
+    await prefs.setStringList('scoreRecords', recordsJson);
+  }
+
+  Future<void> loadScoreRecords() async {
+    final prefs = await SharedPreferences.getInstance();
+    final recordsJson = prefs.getStringList('scoreRecords') ?? [];
+    //if (!mounted) return;
+    //    setState(() {
+    scoreRecords =
+        recordsJson.map((json) => ScoreRecord.fromJson(json)).toList();
+    scoreRecords.sort((a, b) {
+      if (a.time == b.time) {
+        return b.score.compareTo(a.score);
+      }
+      return a.time.compareTo(b.time);
+    });
+    //   });
+  }
+
+  bool getIsFlipped(int row, int col) => gameModel.isFlipped[row][col];
+
+  void setIsFlipped(int row, int col, bool value) =>
+      gameModel.isFlipped[row][col] = value;
+
+  bool isGameOver() {
+    for (int row = 0; row < 8; row++) {
+      for (int col = 0; col < 8; col++) {
+        if (!gameModel.isFlipped[row][col]) {
+          return false;
+        }
+      }
+    }
+    return true;
+  }
+}
+
+class ScoreRecord {
+  final String name;
+  final int score;
+  final int time;
+
+  ScoreRecord({required this.name, required this.score, required this.time});
+
+  Map<String, dynamic> toJson() {
+    return {'name': name, 'score': score, 'time': time};
+  }
+
+  String toJsonString() {
+    return jsonEncode(toJson());
+  }
+
+  factory ScoreRecord.fromJson(String jsonString) {
+    final Map<String, dynamic> json = jsonDecode(jsonString);
+    return ScoreRecord(
+      name: json['name'] as String,
+      score: json['score'] as int,
+      time: json['time'] as int,
+    );
+  }
+
+  @override
+  String toString() {
+    return 'name: $name, score: $score, time: $time';
   }
 }
