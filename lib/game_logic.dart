@@ -10,6 +10,7 @@ class GameLogic {
   static const scoreIncrement = 3;
   static const scoreDecrement = 1;
   static const countUnknownNumbers = 10;
+  static const keySharedPreferences = 'scoreRecords';
   late GameModel gameModel;
   late final List<int> rowLabels;
   late final List<int> colLabels;
@@ -76,16 +77,29 @@ class GameLogic {
     }
   }
 
+  void addScoreRecord(ScoreRecord newRecord) {
+    scoreRecords.add(newRecord);
+    scoreRecords.sort((a, b) {
+      if (a.time == b.time) {
+        return b.score.compareTo(a.score);
+      }
+      return a.time.compareTo(b.time);
+    });
+    if (scoreRecords.length > 10) {
+      scoreRecords.removeLast();
+    }
+  }
+
   Future<void> saveScoreRecords() async {
     final prefs = await SharedPreferences.getInstance();
     final recordsJson =
         scoreRecords.map((record) => record.toJsonString()).toList();
-    await prefs.setStringList('scoreRecords', recordsJson);
+    await prefs.setStringList(keySharedPreferences, recordsJson);
   }
 
   Future<void> loadScoreRecords() async {
     final prefs = await SharedPreferences.getInstance();
-    final recordsJson = prefs.getStringList('scoreRecords') ?? [];
+    final recordsJson = prefs.getStringList(keySharedPreferences) ?? [];
     //if (!mounted) return;
     //    setState(() {
     scoreRecords =
@@ -97,6 +111,11 @@ class GameLogic {
       return a.time.compareTo(b.time);
     });
     //   });
+  }
+
+  Future<void> clearRecords() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(keySharedPreferences);
   }
 
   bool getIsFlipped(int row, int col) => gameModel.isFlipped[row][col];

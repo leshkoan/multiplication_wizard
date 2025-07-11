@@ -273,6 +273,7 @@ class _MyHomePageState extends State<MyHomePage> {
                         MaterialPageRoute(
                           builder:
                               (context) => ScoreRecordsPage(
+                                gameLogic: gameLogic,
                                 scoreRecords: gameLogic.scoreRecords,
                               ),
                         ),
@@ -283,6 +284,7 @@ class _MyHomePageState extends State<MyHomePage> {
                   ElevatedButton(
                     onPressed: () {
                       gameLogic.resetGame();
+                      setState(() {});
                     },
                     child: const Text('Начать заново'),
                   ),
@@ -350,16 +352,7 @@ class _MyHomePageState extends State<MyHomePage> {
     );
 
     setState(() {
-      gameLogic.scoreRecords.add(newRecord);
-      gameLogic.scoreRecords.sort((a, b) {
-        if (a.time == b.time) {
-          return b.score.compareTo(a.score);
-        }
-        return a.time.compareTo(b.time);
-      });
-      if (gameLogic.scoreRecords.length > 10) {
-        gameLogic.scoreRecords.removeLast();
-      }
+      gameLogic.addScoreRecord(newRecord);
     });
 
     gameLogic.saveScoreRecords();
